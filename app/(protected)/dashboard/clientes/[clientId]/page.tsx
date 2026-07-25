@@ -2,12 +2,13 @@
 // PROJETO: bpo-system-web-os
 // MODULO: Portal Protegido / Detalhe do Cliente
 // ARQUIVO: app/(protected)/dashboard/clientes/[clientId]/page.tsx
-// DESCRICAO: Pagina de detalhe de um cliente - tema aplicado (identidade
-//            visual) e os 4 cenarios de diagnostico por pilar.
+// DESCRICAO: Pagina de detalhe de um cliente - tema aplicado, os 4 cenarios
+//            de diagnostico por pilar, e formulario para registrar um novo.
 // ============================================================================
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { DiagnosticForm } from "@/components/diagnostics/DiagnosticForm";
 
 const PILARES = [
   { key: "ti", label: "BPO de TI", stroke: "#0F6E56", fill: "#E1F5EE", text: "#04342C" },
@@ -48,14 +49,18 @@ export default async function ClienteDetalhePage({
   const { data: diagnostics } = await supabase
     .from("diagnostics")
     .select("*")
-    .eq("client_id", clientId);
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
 
   const primaryColor = theme?.primary_color ?? "#1B2A4A";
   const secondaryColor = theme?.secondary_color ?? "#F4F5F8";
 
-  const diagnosticsByDept: Record<string, { findings: string | null }> = Object.fromEntries(
-    (diagnostics ?? []).map((d) => [d.department, d])
-  );
+  const latestByDept: Record<string, { findings: string | null }> = {};
+  for (const d of diagnostics ?? []) {
+    if (!latestByDept[d.department]) {
+      latestByDept[d.department] = d;
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -99,7 +104,7 @@ export default async function ClienteDetalhePage({
         <h2 className="text-lg font-semibold mb-3">Diagnostico por pilar</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {PILARES.map((p) => {
-            const d = diagnosticsByDept[p.key];
+            const d = latestByDept[p.key];
             return (
               <div
                 key={p.key}
@@ -116,6 +121,11 @@ export default async function ClienteDetalhePage({
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Novo diagnostico</h2>
+        <DiagnosticForm clientId={client.id} />
       </div>
     </div>
   );
